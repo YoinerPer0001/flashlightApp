@@ -74,5 +74,9 @@ dependencies {
 
     implementation("com.github.wendykierp:JTransforms:3.1")
 
+    implementation("com.google.android.gms:play-services-ads:24.5.0")
+
+    implementation("androidx.core:core-splashscreen:1.0.0")
+
 
 }

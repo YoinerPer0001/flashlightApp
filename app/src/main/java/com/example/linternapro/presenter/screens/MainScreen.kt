@@ -54,21 +54,30 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.linternapro.R
 import com.example.linternapro.core.toggleFlashlight
+import com.example.linternapro.presenter.components.BannerComponent
 import com.example.linternapro.presenter.components.ButtonMode
 import com.example.linternapro.presenter.components.CurvedBrightnessControl
 import com.example.linternapro.presenter.components.DialogPermissions
+import com.example.linternapro.presenter.components.IntersticialComponent
 import com.example.linternapro.presenter.components.RadioButtonSingleSelection
 import com.example.linternapro.presenter.viewmodels.PermissionsCameraVM
 import com.example.linternapro.presenter.viewmodels.TorchManager
 import com.example.linternapro.ui.theme.DarkBackGround
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.google.android.gms.ads.AdListener
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -86,65 +95,53 @@ fun MainScreen(
     callback: () -> Unit
 ) {
 
+    val context = LocalContext.current
+    var showConfigDialog by remember { mutableStateOf(false) }
+    var ShowIntersticial by remember { mutableStateOf(true) }
+    val activity = context as Activity
+    var btnEnabled by remember { mutableStateOf(0) }
+
+    val allGranted by viewModelCameraVM.permissionsGranted.collectAsState()
+    val permanetlyDenied by viewModelCameraVM.permanentlyDenied.collectAsState()
+
+    val permissions = arrayOf(
+        android.Manifest.permission.CAMERA,
+        android.Manifest.permission.RECORD_AUDIO
+    )
+    var btnMicState by remember { mutableStateOf(false) }
+    var btnSosState by remember { mutableStateOf(false) }
+
+    var textTypeDialog by remember { mutableStateOf(0) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { results ->
+            viewModelCameraVM.onPermissionsResult(activity, results, permissions)
+        }
+    )
+
+
     LaunchedEffect(Unit) {
         viewModelCameraVM.onCharge()
-    }
-
-    val firstInit by viewModelCameraVM.firstStart.collectAsState()
-
-    val context = LocalContext.current
-    val cameraPermissionsState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    val micPermissionsState = rememberPermissionState(android.Manifest.permission.RECORD_AUDIO)
-    var showConfigDialog by remember { mutableStateOf(false) }
-    var showRationaleDialog by remember { mutableStateOf(false) }
-    var Togle by remember { mutableStateOf(false) }
-
-    var sosMode by remember { mutableStateOf(false) }
-
-
-
-    when {
-        cameraPermissionsState.status.isGranted -> {
-            // ✅ Todo ok
-            showRationaleDialog = false
-            showConfigDialog = false
-        }
-
-        cameraPermissionsState.status.shouldShowRationale -> {
-            // ❌ Rechazó sin marcar "No volver a preguntar"
-            if (!showRationaleDialog) showRationaleDialog = true
-        }
-
-        micPermissionsState.status.isGranted -> {
-            // ✅ Todo ok
-            showRationaleDialog = false
-            showConfigDialog = false
-        }
-
-        micPermissionsState.status.shouldShowRationale -> {
-            // ❌ Rechazó sin marcar "No volver a preguntar"
-            if (!showRationaleDialog) showRationaleDialog = true
-        }
-
-        else -> {}
+        ShowIntersticial = false
     }
 
 
-    // Diálogo Rationale
-    if (showRationaleDialog) {
-        DialogPermissions { response ->
-            if (response) {
-                cameraPermissionsState.launchPermissionRequest()
+    if (ShowIntersticial) {
+        IntersticialComponent {
+            if (it != null) {
+                it.show(activity)
             } else {
-                showRationaleDialog = false
+                ShowIntersticial = false
             }
-
         }
     }
+
 
     // Diálogo Configuración
     if (showConfigDialog) {
-        DialogPermissions { response ->
+
+        DialogPermissions(textTypeDialog) { response ->
             if (response) {
                 val intent = Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -153,9 +150,20 @@ fun MainScreen(
                 context.startActivity(intent)
             }
             showConfigDialog = false
+
         }
     }
 
+    when {
+
+        allGranted -> {
+            if (showConfigDialog) showConfigDialog = false
+        }
+
+        else -> {
+//            launcher.launch(permissions)
+        }
+    }
 
     Scaffold(
         Modifier
@@ -169,31 +177,89 @@ fun MainScreen(
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Box(
+                modifier = Modifier
+                    .weight(0.1f)
+                    .padding(top = 10.dp)
+                    .fillMaxWidth(), contentAlignment = Alignment.TopCenter
+            ) {
+                BannerComponent("ca-app-pub-3940256099942544/9214589741")
+            }
+
+
             Box(
                 modifier = Modifier
                     .weight(0.2f)
                     .fillMaxWidth(), contentAlignment = Alignment.Center
             ) {
 
-                Row (horizontalArrangement = Arrangement.SpaceAround, modifier =  Modifier.fillMaxWidth().selectableGroup()){
-                    ButtonMode(type = true, text =  "Sos", onclick = {
-                        torchVM.toggleSoS()
-                    })
+                Row(
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectableGroup()
+                ) {
+                    ButtonMode(actived = btnSosState,isEnabled = btnEnabled != 1, type = true, text = "Sos", onclick = {
 
-                    ButtonMode(type = false, icon = Icons.Default.MusicNote, onclick =  {
-                        if (!micPermissionsState.status.isGranted) {
-                            micPermissionsState.launchPermissionRequest()
 
-                            if (firstInit != "y" && firstInit.isNotEmpty() && !micPermissionsState.status.isGranted) {
-                                if (!showConfigDialog) showConfigDialog = true
-
-                            } else {
-                                viewModelCameraVM.updatePreferences("Installed", "n")
+                        if (!allGranted) {
+                            if (permanetlyDenied) {
+                                if (!showConfigDialog) {
+                                    showConfigDialog = true
+                                    textTypeDialog = 1
+                                }
                             }
+
+                            launcher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.CAMERA,
+                                    android.Manifest.permission.RECORD_AUDIO
+                                )
+                            )
+
+
                         } else {
-                            torchVM.toggleMusicMode()
+                            btnSosState = !btnSosState
+                            if (btnSosState) btnEnabled = 2 else btnEnabled = 0
+                            torchVM.toggleSoS()
                         }
                     })
+
+                    //btn micro
+                    ButtonMode(
+                        actived = btnMicState,
+                        isEnabled = btnEnabled != 2,
+                        type = false,
+                        icon = Icons.Default.MusicNote,
+                        onclick = {
+                            btnMicState = !btnMicState
+                            if (btnMicState) btnEnabled = 1 else btnEnabled = 0
+
+                            if (!allGranted) {
+
+                                if (permanetlyDenied && btnMicState) {
+                                    if (!showConfigDialog) {
+                                        showConfigDialog = true
+                                        textTypeDialog = 1
+                                    } else {
+                                        textTypeDialog = 0
+                                    }
+
+                                }
+                                launcher.launch(
+                                    arrayOf(
+                                        android.Manifest.permission.CAMERA,
+                                        android.Manifest.permission.RECORD_AUDIO
+                                    )
+                                )
+
+                            } else {
+
+                                torchVM.toggleMusicMode()
+                            }
+
+                        })
                 }
 
             }
@@ -204,15 +270,22 @@ fun MainScreen(
             ) {
 
                 CurvedBrightnessControl() {
-                    if (!cameraPermissionsState.status.isGranted) {
-                        cameraPermissionsState.launchPermissionRequest()
-
-                        if (firstInit != "y" && firstInit.isNotEmpty() && !cameraPermissionsState.status.isGranted) {
-                            if (!showConfigDialog) showConfigDialog = true
-
-                        } else {
-                            viewModelCameraVM.updatePreferences("Installed", "n")
+                    if (!allGranted) {
+                        if (permanetlyDenied) {
+                            Log.d("ENTRO", "denied")
+                            if (!showConfigDialog) {
+                                showConfigDialog = true
+                                textTypeDialog = 1
+                            }
                         }
+                        launcher.launch(
+                            arrayOf(
+                                android.Manifest.permission.CAMERA,
+                                android.Manifest.permission.RECORD_AUDIO
+                            )
+                        )
+
+
                     } else {
                         toggleFlashlight(context, !it)
                     }
@@ -222,10 +295,11 @@ fun MainScreen(
 
             Box(
                 modifier = Modifier
-                    .weight(0.2f)
+                    .weight(0.1f)
+                    .padding(bottom = 10.dp)
                     .fillMaxWidth(), contentAlignment = Alignment.TopCenter
             ) {
-
+                BannerComponent("ca-app-pub-3940256099942544/9214589741")
             }
 
         }

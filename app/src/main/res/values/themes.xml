@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="Theme.LinternaPro" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/Dark</item>
+        <item name="windowSplashScreenAnimatedIcon" >@drawable/icono2</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/Dark</item>
+        <item name="postSplashScreenTheme">@style/Theme.LinternaPro</item>
+
+    </style>
 </resources>

@@ -7,21 +7,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 
 @Composable
-fun DialogPermissions(response:(Boolean) -> Unit){
+fun DialogPermissions(textType:Int = 0, response:(Boolean) -> Unit){
+    val textTitle = "Permissions are required"
+    val textMic = "This app requires access to your Camera and Microphone to work properly."
+    val textCamera = "This app requires access to your Camera to work properly."
     AlertDialog(
         onDismissRequest = {},
-        title = { Text("Permiso requerido") },
-        text = { Text("Necesitamos acceso a la cámara para encender la linterna.") },
+        title = { Text(textTitle) },
+        text = { Text(if(textType == 0) textCamera else textMic) },
         confirmButton = {
             TextButton(onClick = {
                response(true)
             }) {
-                Text("Permitir")
+                Text("Allow")
             }
         },
         dismissButton = {
             TextButton(onClick = { response(false) }) {
-                Text("Cancelar")
+                Text("Cancel")
             }
         }
     )

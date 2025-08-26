@@ -21,16 +21,14 @@ import androidx.compose.ui.unit.sp
 import com.example.linternapro.ui.theme.YellowColor
 
 @Composable
-fun ButtonMode(onclick:()->Unit, type:Boolean, text:String = "", icon:ImageVector = Icons.Default.QuestionMark){
-
-    var actived by remember { mutableStateOf(false) }
+fun ButtonMode(actived:Boolean, isEnabled: Boolean = false, onclick:()->Unit, type:Boolean, text:String = "", icon:ImageVector = Icons.Default.QuestionMark){
 
     Button(
         modifier = Modifier.size(80.dp),
+        enabled = isEnabled,
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(containerColor = if (!actived) Color.Gray else YellowColor),
         onClick = {
-            actived = !actived
             onclick()
         }) {
         if(type){
